@@ -61,7 +61,14 @@ int main(void) {
     fputs("Trường Đại học Giao thông vận tải\n", f);
     fputs("Ứng dụng mã hóa tệp tin: ă â ê ô ơ ư đ\n", f);
     fclose(f);
-
+/* ===== 838860800 bit (104857600 byte = 100 MB) ===== */
+    f = fopen("data/838860800bit.bin", "wb");
+    if (f == NULL) { printf("Loi\n"); return 1; }
+    for (i = 0; i < 104857600; i++) {
+        fputc(i % 256, f);
+    }
+    fclose(f);
+    
     printf("Xong\n");
     return 0;
 }
