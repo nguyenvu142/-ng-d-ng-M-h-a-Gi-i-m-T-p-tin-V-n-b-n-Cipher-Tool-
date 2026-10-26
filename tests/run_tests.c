@@ -20,10 +20,10 @@
 #define NUM_ALGOS 4
 #define NUM_FILES 12
 
-/* SUA: ten 4 thuat toan va khoa tuong ung cho dung voi main.c cua nhom */
+/* SUA: ten 4 thuat toan va khoa tuong ung cho dung voi main.c cua nhom */ //------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------//
 static const char *ALGOS[] = {"caesar", "xor", "algo3", "algo4"};
 static const char *KEYS[] = {"3", "secretkey", "key3", "key4"};
-
+//------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------//
 /* Ten cac tep do gen_data.c tao ra trong thu muc data/ */
 static const char *FILES[] = {
     "0bit.bin", "8bit.bin", "56bit.bin", "64bit.bin", "72bit.bin",
