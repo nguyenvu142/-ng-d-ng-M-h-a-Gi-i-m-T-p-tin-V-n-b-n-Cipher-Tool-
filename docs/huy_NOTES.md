@@ -35,19 +35,18 @@ Hết bảng chữ cái thì quay lại đầu
 - thì tôi chọn một từ khóa nào đó để khóa ví dụ "key"
 - mà key chỉ có 3 chữ cái bé hơn hello 5 chữ cái 
 - nên kí tự khóa sẽ là keyke ( nếu mà chữ mã hóa là 6 hay 7,8 chữ cái chẳng hạn thì dễ thấy ta cứ tiếp tục lặp lại keykeykeykey thôi
- -trường hợp này là keyke
+-trường hợp này là keyke
 - bắt đầu mã hóa như sau
- +hello
- -chữ cái h đứng thứ 7 nên tôi viết gọn h=7
- -tương tự e=4, l=11,...
- +keyke cũng tương tự 
- k=10, e=4, ...
- -sau đó ta cộng số đã tính theo vị trí h-k, e-e, l-y,...
- -được từng cặp như sau 17, 8, 35, 21, 18
- -ta tiếp tục thay các số đó ngược lại thành chữ sau khi chia 26 lấy dư là được một chuỗi mã hóa rồi
-  >17 % 26= 17 ->R
-  >8 % 26= 8 ->I
- >35 % 26= 9 -> J
- >21 % 26= 21-> V
- >18%26=18 -> S
- -vậy mã hóa cho từ ''hello'' với khóa ''key'' là RIJVS
+- -+hello
+-chữ cái h đứng thứ 7 nên tôi viết gọn h=7 -tương tự e=4, l=11,...
+- +keyke cũng tương tự 
+-k=10, e=4, ...
+-sau đó ta cộng số đã tính theo vị trí h-k, e-e, l-y,...
+-được từng cặp như sau 17, 8, 35, 21, 18
+-ta tiếp tục thay các số đó ngược lại thành chữ sau khi chia 26 lấy dư là được một chuỗi mã hóa rồi
+- 17 % 26= 17 ->R
+- 8 % 26= 8 ->I
+- 35 % 26= 9 -> J
+- 21 % 26= 21-> V
+- 18%26=18 -> S
+- vậy mã hóa cho từ ''hello'' với khóa ''key'' là RIJVS
