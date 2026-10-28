@@ -1,1 +1,5 @@
-
+*.o
+cipher_tool
+cipher_tool.exe
+tests/data/
+*.tmp
