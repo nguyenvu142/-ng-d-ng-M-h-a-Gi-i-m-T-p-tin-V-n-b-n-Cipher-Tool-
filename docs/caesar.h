@@ -1,21 +1,11 @@
 #ifndef CAESAR_H
 #define CAESAR_H
-
 #include <stddef.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-#define MODE_BYTE  0
-#define MODE_ALPHA 1
-
-#define OP_ENCRYPT 0
-#define OP_DECRYPT 1
-
-int caesar_process(
-    unsigned char *buf,
-    size_t n,
-    int key,
-    size_t offset,
-    int op,
-    int mode
-);
-
+/* Byte mode: every byte is shifted modulo 256, including 0xFF -> 0x00. */
+void caesar_process_bytes(uint8_t *data, size_t len, int key, bool decrypt);
+/* Letter mode: shifts only ASCII A-Z/a-z; other bytes are unchanged. */
+void caesar_process_letters(uint8_t *data, size_t len, int key, bool decrypt);
 #endif
