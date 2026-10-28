@@ -37,12 +37,12 @@ static int run_cipher(const char *algo, const char *op, const char *key,
 {
     char cmd[CMD_LEN];
 
-    /* SUA dong nay cho dung cu phap that cua main.c */
+    /* SUA dong nay cho dung cu phap that cua main.c *///------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////
     snprintf(cmd, sizeof(cmd), "%s %s %s %s \"%s\" \"%s\"",
              CIPHER_EXE, algo, op, key, in, out);
     return system(cmd);
 }
-
+//------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////
 /* So sanh 2 tep tung byte. Tra ve 1 neu giong nhau, 0 neu khac */
 static int files_equal(const char *path_a, const char *path_b)
 {
