@@ -1,120 +1,92 @@
-/*
- * run_tests.c - Chay ma tran test: 4 thuat toan x cac tep test.
- * Moi ca: ma hoa -> giai ma -> so sanh tep ket qua voi tep goc.
- *
- * Chay tu BEN TRONG thu muc tests/:
- *   mkdir -p data out
- *   gcc -Wall -Wextra -std=c11 -pedantic gen_data.c -o gen_data
- *   gcc -Wall -Wextra -std=c11 -pedantic run_tests.c -o run_tests
- *   ./gen_data
- *   ./run_tests
- */
 #include <stdio.h>
-#include <stdlib.h>
+#include "test_common.h"
 
-#define CMD_LEN 512
-#define PATH_LEN 256
-#define CIPHER_EXE "../cipher" //sua cho nay cho dung ten
-#define DATA_DIR "data"
-#define OUT_DIR "out"
-#define NUM_ALGOS 4
-#define NUM_FILES 12
+/* Mot dong trong bang: ten tep, so byte, buoc tang cua gia tri byte */
+typedef struct {
+    const char *ten_tep;
+    long so_byte;
+    int buoc;
+} MauTep;
 
-/* SUA: ten 4 thuat toan va khoa tuong ung cho dung voi main.c cua nhom */ //------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------//
-static const char *ALGOS[] = {"caesar", "xor", "algo3", "algo4"};
-static const char *KEYS[] = {"3", "secretkey", "key3", "key4"};
-//------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------//
-/* Ten cac tep do gen_data.c tao ra trong thu muc data/ */
-static const char *FILES[] = {
-    "0bit.bin", "8bit.bin", "56bit.bin", "64bit.bin", "72bit.bin",
-    "2048bit.bin", "8192bit.bin", "524280bit.bin", "524288bit.bin",
-    "524296bit.bin", "tiengviet.txt", "838860800bit.bin"
-};
+/* Ghi so_byte byte, byte thu i co gia tri (i * buoc) % 256 */
+static int ghi_tep_so(const char *ten_tep, long so_byte, int buoc) {
+    FILE *f = fopen(ten_tep, "wb");
+    long i;
 
-/* Chay chuong trinh ma hoa. Tra ve 0 neu thanh cong, khac 0 neu loi */
-static int run_cipher(const char *algo, const char *op, const char *key,
-                      const char *in, const char *out)
-{
-    char cmd[CMD_LEN];
-
-    /* SUA dong nay cho dung cu phap that cua main.c *///------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////
-    snprintf(cmd, sizeof(cmd), "%s %s %s %s \"%s\" \"%s\"",
-             CIPHER_EXE, algo, op, key, in, out);
-    return system(cmd);
-}
-//------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////------QUANG TRONG SUA CHO DUNG--------////
-/* So sanh 2 tep tung byte. Tra ve 1 neu giong nhau, 0 neu khac */
-static int files_equal(const char *path_a, const char *path_b)
-{
-    FILE *fa = fopen(path_a, "rb");
-    FILE *fb = fopen(path_b, "rb");
-    int same = 1;
-    int ca;
-    int cb;
-
-    if (fa == NULL || fb == NULL) {
-        same = 0;
-    } else {
-        do {
-            ca = fgetc(fa);
-            cb = fgetc(fb);
-            if (ca != cb) {
-                same = 0;
-                break;
-            }
-        } while (ca != EOF);
+    if (f == NULL) {
+        return ERR_FILE_OPEN;
     }
-    if (fa != NULL) {
-        fclose(fa);
-    }
-    if (fb != NULL) {
-        fclose(fb);
-    }
-    return same;
-}
-
-/* Test 1 ca: ma hoa -> giai ma -> so sanh. Tra ve 1 neu PASS */
-static int test_one(const char *algo, const char *key, const char *name)
-{
-    char src[PATH_LEN];
-    char enc[PATH_LEN];
-    char dec[PATH_LEN];
-    int ok = 0;
-
-    snprintf(src, sizeof(src), "%s/%s", DATA_DIR, name);
-    snprintf(enc, sizeof(enc), "%s/%s.enc", OUT_DIR, name);
-    snprintf(dec, sizeof(dec), "%s/%s.dec", OUT_DIR, name);
-
-    if (run_cipher(algo, "enc", key, src, enc) == 0 &&
-        run_cipher(algo, "dec", key, enc, dec) == 0 &&
-        files_equal(src, dec)) {
-        ok = 1;
-    }
-    remove(enc);
-    remove(dec);
-    return ok;
-}
-
-int main(void)
-{
-    int total = 0;
-    int failed = 0;
-    int i;
-    int j;
-
-    printf("%-10s %-20s %s\n", "ALGO", "FILE", "KET QUA");
-    for (i = 0; i < NUM_ALGOS; i++) {
-        for (j = 0; j < NUM_FILES; j++) {
-            int ok = test_one(ALGOS[i], KEYS[i], FILES[j]);
-
-            printf("%-10s %-20s %s\n", ALGOS[i], FILES[j],
-                   ok ? "PASS" : "FAIL");
-            total++;
-            if (!ok) {
-                failed++;
-            }
+    for (i = 0; i < so_byte; i++) {
+        if (fputc((int)((i * buoc) % 256), f) == EOF) {
+            fclose(f);
+            return ERR_FILE_WRITE;
         }
     }
-    printf("\nTong: %d ca, %d FAIL\n", total, failed);
-    return failed > 0 ? 1 : 0;
+    fclose(f);
+    return SUCCESS;
+}
+
+/* Ghi nguyen mot mang byte vao tep */
+static int ghi_tep_du_lieu(const char *ten_tep, const char *du_lieu, size_t n) {
+    FILE *f = fopen(ten_tep, "wb");
+
+    if (f == NULL) {
+        return ERR_FILE_OPEN;
+    }
+    if (fwrite(du_lieu, 1, n, f) != n) {
+        fclose(f);
+        return ERR_FILE_WRITE;
+    }
+    fclose(f);
+    return SUCCESS;
+}
+
+/* Tieng Viet UTF-8 (101 byte), viet bang ma byte de khong phu thuoc cach luu file */
+static int tao_tep_tieng_viet(void) {
+    static const char noi_dung[] =
+        "Tr\306\260\341\273\235ng \304\220\341\272\241i h\341\273\215c "
+        "Giao th\303\264ng v\341\272\255n t\341\272\243i\n"
+        "\341\273\250ng d\341\273\245ng m\303\243 h\303\263a t\341\273\207p tin: "
+        "\304\203 \303\242 \303\252 \303\264 \306\241 \306\260 \304\221\n";
+
+    return ghi_tep_du_lieu("data/tiengviet.txt", noi_dung, sizeof(noi_dung) - 1);
+}
+
+int main(void) {
+    /* Ten tep = so bit (so byte x 8). Doi BLOCK_SIZE / PERM_BLOCK_N thi doi ten cho khop */
+    const MauTep danh_sach[] = {
+        {"data/0bit.bin",           0,                  1},
+        {"data/8bit.bin",           1,                  1},
+        {"data/56bit.bin",          PERM_BLOCK_N - 1,   1},
+        {"data/64bit.bin",          PERM_BLOCK_N,       1},
+        {"data/72bit.bin",          PERM_BLOCK_N + 1,   1},
+        {"data/2048bit.bin",        256,                1},
+        {"data/8192bit.bin",        1024,               7},
+        {"data/524280bit.bin",      BLOCK_SIZE - 1,     1},
+        {"data/524288bit.bin",      BLOCK_SIZE,         1},
+        {"data/524296bit.bin",      BLOCK_SIZE + 1,     1},
+        {"data/838860800bit.bin",   104857600L,         1}
+    };
+    const int so_tep = (int)(sizeof(danh_sach) / sizeof(danh_sach[0]));
+    int i;
+    int ma_loi;
+
+    for (i = 0; i < so_tep; i++) {
+        ma_loi = ghi_tep_so(danh_sach[i].ten_tep, danh_sach[i].so_byte,
+                            danh_sach[i].buoc);
+        if (ma_loi != SUCCESS) {
+            printf("Loi %d khi tao %s (da tao thu muc data chua?)\n",
+                   ma_loi, danh_sach[i].ten_tep);
+            return ma_loi;
+        }
+    }
+
+    ma_loi = tao_tep_tieng_viet();
+    if (ma_loi != SUCCESS) {
+        printf("Loi %d khi tao tiengviet.txt\n", ma_loi);
+        return ma_loi;
+    }
+
+    printf("Xong\n");
+    return SUCCESS;
 }
