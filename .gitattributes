@@ -1,1 +1,3 @@
-
+* text=auto
+*.bin binary
+*.enc binary
