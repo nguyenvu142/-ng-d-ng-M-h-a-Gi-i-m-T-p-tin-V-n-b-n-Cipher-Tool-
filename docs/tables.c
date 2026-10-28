@@ -1,34 +1,18 @@
 #include "tables.h"
 
-unsigned char caesar_table[BYTE_TABLE_SIZE];
-unsigned char caesar_inverse_table[BYTE_TABLE_SIZE];
+uint8_t CAESAR_ENC[256];
+uint8_t CAESAR_DEC[256];
+char VIGENERE_TABLE[26][26];
 
-unsigned char vigenere_table[ALPHA_TABLE_SIZE][ALPHA_TABLE_SIZE];
-
-void build_caesar_tables(int shift)
-{
-    int i;
-
-    shift = ((shift % 256) + 256) % 256;
-
-    for (i = 0; i < 256; i++) {
-        caesar_table[i] = (unsigned char)((i + shift) % 256);
-        caesar_inverse_table[i] =
-            (unsigned char)((i - shift + 256) % 256);
+/* Generate tables at runtime instead of writing 256/676 entries by hand. */
+void tables_init(void) {
+    for (int i = 0; i < 256; ++i) {
+        CAESAR_ENC[i] = (uint8_t)((i + 1) % 256);
+        CAESAR_DEC[i] = (uint8_t)((i + 255) % 256);
     }
-}
-
-void tables_init(void)
-{
-    int row;
-    int col;
-
-    build_caesar_tables(0);
-
-    for (row = 0; row < 26; row++) {
-        for (col = 0; col < 26; col++) {
-            vigenere_table[row][col] =
-                (unsigned char)((row + col) % 26);
+    for (int row = 0; row < 26; ++row) {
+        for (int col = 0; col < 26; ++col) {
+            VIGENERE_TABLE[row][col] = (char)('A' + (row + col) % 26);
         }
     }
 }
