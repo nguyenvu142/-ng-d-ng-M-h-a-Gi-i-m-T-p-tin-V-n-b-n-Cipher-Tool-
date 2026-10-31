@@ -3,8 +3,8 @@
 #include <string.h>
 #include "test_common.h"
 
-/*
-run_tests ghi san cac cau tra loi vao tep ans.tmp roi chay:
+/* Chuong trinh cua Huy la MENU (nhap bang ban phim), khong co tham so dong lenh.
+   Vi vay run_tests ghi san cac cau tra loi vao tep ans.tmp roi chay:
        cipher.exe < ans.tmp
    Windows: ".\\cipher.exe". Linux/WSL: dich them -DCIPHER_CMD='"./cipher"' */
 #ifndef CIPHER_CMD
@@ -277,7 +277,37 @@ static void chay_dap_an(ThongKe *tk) {
                            (const unsigned char *)"LXFOPVEFRNHR", 12));
 }
 
-/* Phan 3: test am tinh */
+/* Phan 3a: khoa Caesar theo quyet dinh cua Vu: so nguyen tu 1 den 255.
+   Khoa hop le (1, 255) phai ma hoa/giai ma dung o ca hai che do.
+   Khoa ngoai khoang (0, 256, 300, -1, abc) phai bi TU CHOI. */
+static void chay_khoa_caesar(ThongKe *tk) {
+    const char *khoa_hop_le[2] = {"1", "255"};
+    const char *khoa_sai[5] = {"0", "256", "300", "-1", "abc"};
+    const int che_do[2] = {CHE_DO_BYTE, CHE_DO_CHU};
+    const char *ten_che_do[2] = {"byte", "chu"};
+    char ten[100];
+    int k;
+    int m;
+
+    for (k = 0; k < 2; k++) {
+        for (m = 0; m < 2; m++) {
+            snprintf(ten, sizeof(ten), "khoa %s (hop le), che do %s",
+                     khoa_hop_le[k], ten_che_do[m]);
+            ghi_ket_qua(tk, "khoa-caesar", ten,
+                        thu_vong_tron(ALGO_CAESAR, che_do[m], khoa_hop_le[k],
+                                      "data/8192bit.bin"));
+        }
+    }
+    for (k = 0; k < 5; k++) {
+        snprintf(ten, sizeof(ten), "khoa %s (ngoai 1-255) phai bi tu choi",
+                 khoa_sai[k]);
+        ghi_ket_qua(tk, "khoa-caesar", ten,
+                    thu_tu_choi(ALGO_CAESAR, CHE_DO_BYTE, khoa_sai[k],
+                                "data/8bit.bin"));
+    }
+}
+
+/* Phan 3b: test am tinh khac */
 static void chay_am_tinh(ThongKe *tk) {
     ghi_ket_qua(tk, "am-tinh", "tep vao khong ton tai",
                 thu_tu_choi(ALGO_CAESAR, CHE_DO_BYTE, "3",
@@ -285,8 +315,6 @@ static void chay_am_tinh(ThongKe *tk) {
     ghi_ket_qua(tk, "am-tinh", "khoa Vigenere sai (K3y!)",
                 thu_tu_choi(ALGO_VIGENERE, CHE_DO_CHU, "K3y!",
                             "data/8bit.bin"));
-    ghi_ket_qua(tk, "am-tinh", "khoa Caesar = 0 (hop dong: 1-255)",
-                thu_tu_choi(ALGO_CAESAR, CHE_DO_BYTE, "0", "data/8bit.bin"));
     ghi_ket_qua(tk, "am-tinh", "tep vao trung tep ra", thu_trung_tep());
     ghi_ket_qua(tk, "am-tinh", "giai ma sai khoa", thu_sai_khoa());
 }
@@ -304,6 +332,7 @@ int main(void) {
 
     chay_ma_tran(&tk);
     chay_dap_an(&tk);
+    chay_khoa_caesar(&tk);
     chay_am_tinh(&tk);
 
     printf("=== PASS=%d  FAIL=%d ===\n", tk.so_pass, tk.so_fail);
