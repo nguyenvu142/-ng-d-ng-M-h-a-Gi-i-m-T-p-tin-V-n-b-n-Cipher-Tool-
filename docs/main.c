@@ -12,6 +12,10 @@
 static int process_file(const char *input_path, const char *output_path,
                         int algorithm, int mode, int decrypt,
                         int caesar_key, const char *vig_key) {
+  if (strcmp(input_path, output_path) == 0) {
+    fprintf(stderr, "Loi: tep dau vao va dau ra trung nhau.\n");
+    return 0;
+}
     FILE *in = fopen(input_path, "rb");
     if (!in) { perror("Khong mo duoc tep dau vao"); return 0; }
     FILE *out = fopen(output_path, "wb");
