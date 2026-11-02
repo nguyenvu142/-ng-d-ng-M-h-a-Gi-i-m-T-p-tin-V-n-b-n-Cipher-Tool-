@@ -1,0 +1,24 @@
+# Cipher classic test vectors
+# Format: algorithm | mode | operation | input_hex_or_text | key | expected_hex_or_text
+# Caesar classic letters
+CAESAR | letters | encrypt | HELLO | 3 | KHOOR
+CAESAR | letters | decrypt | KHOOR | 3 | HELLO
+CAESAR | letters | encrypt | XYZ | 3 | ABC
+CAESAR | letters | encrypt | ABC | 26 | ABC
+# Caesar byte mode (hex input/output)
+CAESAR | byte | encrypt | FF | 1 | 00
+CAESAR | byte | decrypt | 00 | 1 | FF
+CAESAR | byte | encrypt | 00 | 255 | FF
+# Vigenere classic letters
+VIGENERE | letters | encrypt | ATTACKATDAWN | LEMON | LXFOPVEFRNHR
+VIGENERE | letters | decrypt | LXFOPVEFRNHR | LEMON | ATTACKATDAWN
+VIGENERE | letters | encrypt | A A! | B | B B!
+# Vigenere byte mode (hex bytes; key shown as hex bytes)
+VIGENERE | byte | encrypt | 00 FF 10 | 01 02 | 01 01 11
+VIGENERE | byte | decrypt | 01 01 11 | 01 02 | 00 FF 10
+# Validation cases (expected behavior)
+VALIDATE | caesar_letters | key=0 | warning_no_change
+VALIDATE | caesar_letters | key=26 | warning_no_change
+VALIDATE | caesar_byte | key=0 | warning_no_change
+VALIDATE | caesar_byte | key=256 | warning_no_change
+VALIDATE | vigenere | empty_key | error_reject
