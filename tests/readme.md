@@ -1,37 +1,65 @@
-1.	Kiểm tra chất lượng
-gcc -Wall -Wextra -std=c11 -pedantic -o gen_data tests/gen_data.c gcc -Wall -Wextra -std=c11 -pedantic -o run_tests tests/run_tests.c ./gen_data ./run_tests
+# Bộ kiểm thử (thư mục `tests`)
 
+Phụ trách: Minh (E). Mục đích: kiểm tra các thuật toán mã hóa của nhóm bằng cách
+chạy tự động và so sánh từng byte, không dùng dữ liệu thật của người dùng.
 
-Làm được ngay bằng gcc trên Windows. Chạy từng file với cờ của đề, ghi cảnh báo vào tệp:
+## Các file
 
+| File | Vai trò |
+|---|---|
+| `gen_data.c` | Tạo 12 tệp dữ liệu test trong `data/` (0 B, 1 B, 7/8/9 B, 256 giá trị byte, 1 KB, 65535/65536/65537 B quanh `BLOCK_SIZE`, tiếng Việt UTF-8, 100 MB). Không commit tệp lớn, chỉ commit script này |
+| `run_tests.c` | Chạy `cipher.exe` (menu của Huy) với 65 phép thử: mã hóa rồi giải mã, đáp án đã biết, khóa Caesar 1 đến 255, test âm tính. Kết quả ghi vào `ketqua.txt` |
+| `test_modules.c` | Test mức hàm cho XOR, hoán vị, padding (các module này chưa vào menu). Kết quả ghi vào `ketqua_modules.txt` |
+| `test_common.h` | Mã lỗi `ERR_*`, `AlgoType`, `OpMode`, `BLOCK_SIZE` dùng chung cho các file test |
+| `attack_caesar.c` | Demo bẻ Caesar bằng brute force (thử mọi khóa) |
+| `attack_xor.c` | Demo bẻ XOR bằng known-plaintext (khóa = bản mã XOR bản rõ) |
 
+## Chuẩn bị (chạy từ thư mục gốc của repo)
 
-1.	gcc -Wall -Wextra -std=c11 -pedantic docs\main.c docs\tables.c docs\caesar.c 
-2.	docs\vigenere.c docs\validate.c -o cipher 2> canhbao.txt
+```
+mkdir data
+mkdir out
+gcc -Wall -Wextra -std=c11 -pedantic docs\main.c docs\tables.c docs\caesar.c docs\vigenere.c docs\validate.c -o cipher 2> canhbao.txt
+gcc -Wall -Wextra -std=c11 -pedantic tests\gen_data.c -o gen_data
+gen_data
+```
 
+`canhbao.txt` trống nghĩa là code dịch không có cảnh báo. Không dùng `docs/*.c` để dịch,
+vì thư mục `docs` có nhiều tệp `main()` riêng của từng thành viên.
 
+## Chạy test mã hóa (Caesar, Vigenère)
 
-ASan/UBSan, Valgrind, cppcheck cần WSL (đề ghi “qua WSL”). Cài một lần: mở PowerShell bằng quyền Administrator, gõ wsl --install, khởi động lại máy, tạo tài khoản Ubuntu. Trong Ubuntu gõ:
-1.	sudo apt update
-2.	sudo apt install -y build-essential valgrind cppcheck
-3.	cd "/mnt/c/Users/NHUT MINH/Desktop/<thư mục repo>"
-4.	mkdir -p data out
-Rồi chạy:
-1.	gcc -g -fsanitize=address,undefined -std=c11 docs/*.c -o cipher_asan
-2.	gcc -std=c11 -DCIPHER_CMD='"./cipher_asan"' tests/run_tests.c -o run_tests_asan
-3.	gcc tests/gen_data.c -o gen_data && ./gen_data
-4.	./run_tests_asan
+```
+gcc -Wall -Wextra -std=c11 -pedantic tests\run_tests.c -o run_tests
+run_tests
+```
 
-5.	gcc -g -std=c11 docs/*.c -o cipher
-6.	printf '1\n1\n1\ndata/8192bit.bin\nout/v.tmp\n3\n0\n' > ans.tmp
-7.	valgrind --leak-check=full ./cipher < ans.tmp
-8.	cppcheck --enable=all --std=c11 docs/ 2> cppcheck.txt
+Kết quả mong đợi: dòng cuối `=== PASS=65  FAIL=0 ===`.
+Nếu báo "khong chay duoc cipher.exe" thì chưa dịch `cipher.exe` hoặc đang đứng sai thư mục.
 
-2. Demo tấn công
-Tôi viết và chạy thử hai chương trình, nằm ở file đính kèm. Chép vào tests\.
-Bẻ Caesar (attack_caesar.c): thử mọi khóa rồi chấm điểm bản giải mã (nhiều ký tự in được và nhiều chữ hay gặp là đúng). Hỗ trợ cả chế độ byte (255 khóa, mặc định của nhóm) và chế độ chữ cái (25 khóa).
-1.	gcc -Wall -Wextra -std=c11 -pedantic tests\attack_caesar.c -o attack_caesar
-2.	attack_caesar
-Nó hỏi tên tệp đã mã hóa và chế độ.
+## Chạy test các module của Tuấn (XOR, hoán vị, padding)
 
-Bẻ XOR bằng known-plaintext (attack_xor.c): vì bản mã = bản rõ XOR khóa, nên khóa = bản mã XOR bản rõ. Chương trình hỏi tệp chứa đoạn bản rõ kẻ tấn công biết (ví dụ phần đầu Dear customer,) và tệp bản mã, rồi tìm khóa, chu kỳ lặp, và giải mã cả tệp. Tôi thử với khóa KEY: ra đúng khóa và tệp giải mã giống hệt bản gốc.
+```
+mkdir obj
+gcc -c -Dmain=xor_demo_main -Itests docs/xorcipher.c -o obj/xor.o
+gcc -c -Dmain=padding_demo_main -Itests tests/padding.c -o obj/padding.o
+gcc -c -Dmain=transpose_demo_main -Itests tests/transpose_process.c -o obj/transpose.o
+gcc -c -Idocs -Itests tests/permutation_module.c -o obj/perm.o
+gcc -Wall -Wextra -std=c11 -pedantic -Idocs -Itests tests/test_modules.c obj/xor.o obj/padding.o obj/transpose.o obj/perm.o -o test_modules
+test_modules
+```
+
+`-Dmain=...` đổi tên `main` trong từng file của Tuấn để ghép chung được.
+
+## Demo tấn công
+
+```
+gcc -Wall -Wextra -std=c11 -pedantic tests\attack_caesar.c -o attack_caesar
+attack_caesar
+```
+
+## Giới hạn hiện tại
+
+- `run_tests` mới kiểm thử Caesar và Vigenère. XOR và hoán vị sẽ được thêm khi `main.c` có hai thuật toán này.
+- `run_tests` gọi chương trình qua menu bằng tệp trả lời `ans.tmp`. Nếu `main.c` chính chuyển sang tham số dòng lệnh thì chỉ cần sửa hàm `chay_cipher`.
+- Các thư mục `data/`, `out/` và tệp `*.exe`, `*.tmp`, `ketqua*.txt` sinh ra khi chạy test, không commit.
