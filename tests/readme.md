@@ -37,7 +37,7 @@ run_tests
 Kết quả mong đợi: dòng cuối `=== PASS=65  FAIL=0 ===`.
 Nếu báo "khong chay duoc cipher.exe" thì chưa dịch `cipher.exe` hoặc đang đứng sai thư mục.
 
-## Chạy test các module của Tuấn (XOR, hoán vị, padding)
+## Chạy test các module (XOR, hoán vị, padding)
 
 ```
 mkdir obj
@@ -57,9 +57,3 @@ test_modules
 gcc -Wall -Wextra -std=c11 -pedantic tests\attack_caesar.c -o attack_caesar
 attack_caesar
 ```
-
-## Giới hạn hiện tại
-
-- `run_tests` mới kiểm thử Caesar và Vigenère. XOR và hoán vị sẽ được thêm khi `main.c` có hai thuật toán này.
-- `run_tests` gọi chương trình qua menu bằng tệp trả lời `ans.tmp`. Nếu `main.c` chính chuyển sang tham số dòng lệnh thì chỉ cần sửa hàm `chay_cipher`.
-- Các thư mục `data/`, `out/` và tệp `*.exe`, `*.tmp`, `ketqua*.txt` sinh ra khi chạy test, không commit.
