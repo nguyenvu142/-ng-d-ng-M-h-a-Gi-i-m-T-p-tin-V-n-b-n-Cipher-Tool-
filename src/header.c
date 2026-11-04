@@ -3,7 +3,7 @@
 #include "common.h"    // (Dự đoán) Chứa định nghĩa kiểu ErrCode
 #include "fileinfo.h"  // (Dự đoán) Chứa định nghĩa struct Header
 #include "cipher.h"    // Tùy chọn: Include thêm nếu dùng hàm/macro từ đây
-
+#include "header.h"
 // Các hằng số (như trong ảnh của bạn)
 #define MAGIC0 'C'
 #define MAGIC1 'T'
