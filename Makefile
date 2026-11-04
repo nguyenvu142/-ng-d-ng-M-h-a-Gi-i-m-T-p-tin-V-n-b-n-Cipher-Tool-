@@ -1,9 +1,8 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -pedantic -std=c99
-SRC_DIR = src
-TARGET = cipher_tool
+CFLAGS = -Wall -Wextra -pedantic -std=c99 -I. -Isrc -Idocs
 
-SRCS = $(SRC_DIR)/main.c $(SRC_DIR)/ui.c $(SRC_DIR)/fileinfo.c $(SRC_DIR)/header.c $(SRC_DIR)/process_file.c $(SRC_DIR)/tables.c $(SRC_DIR)/caesar.c $(SRC_DIR)/vigenere.c $(SRC_DIR)/xorcipher.c $(SRC_DIR)/keyutil.c $(SRC_DIR)/crc32.c
+# Tự động tìm tất cả file .c ở thư mục gốc, src/ và docs/
+SRCS = $(wildcard *.c) $(wildcard src/*.c) $(wildcard docs/*.c)
 OBJS = $(SRCS:.c=.o)
 
 all: $(TARGET)
@@ -12,10 +11,10 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 debug: CFLAGS += -g -fsanitize=address
-debug: $(TARGET)
+debug: clean $(TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(SRC_DIR)/*.o $(TARGET)
+	rm -f *.o src/*.o docs/*.o $(TARGET)
