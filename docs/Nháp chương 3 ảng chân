@@ -1,0 +1,6 @@
+
+Bit Plaintext	Bit Key 	  Bit Ciphertext   Giải mã lại   Kiểm chứng
+0	            0	          0	               0	           Đúng
+0	            1	          1	               0	           Đúng
+1	            0	          1	               1	           Đúng
+1	            1	          0	               1	           Đúng

@@ -229,6 +229,33 @@ static int thu_sai_khoa(void) {
     return SUCCESS;
 }
 
+/* Khoa gom do_dai ky tu giong nhau: chuong trinh phai TU CHOI neu qua dai */
+static int thu_khoa_dai(AlgoType algo, int che_do, char ky_tu, int do_dai) {
+    char khoa[512];
+    int i;
+
+    if (do_dai < 0 || do_dai >= (int)sizeof(khoa)) {
+        return ERR_INVALID_KEY;
+    }
+    for (i = 0; i < do_dai; i++) {
+        khoa[i] = ky_tu;
+    }
+    khoa[do_dai] = '\0';
+    return thu_tu_choi(algo, che_do, khoa, "data/8bit.bin");
+}
+
+/* Khoa Vigenere dai DUNG 255 ky tu (gioi han cua chuong trinh) van phai dung duoc */
+static int thu_khoa_bien_255(void) {
+    char khoa[256];
+    int i;
+
+    for (i = 0; i < 255; i++) {
+        khoa[i] = 'K';
+    }
+    khoa[255] = '\0';
+    return thu_vong_tron(ALGO_VIGENERE, CHE_DO_CHU, khoa, "data/8192bit.bin");
+}
+
 /* Phan 1: ma tran thuat toan x che do x tep, ma hoa roi giai ma */
 static void chay_ma_tran(ThongKe *tk) {
     const AlgoType algo[2] = {ALGO_CAESAR, ALGO_VIGENERE};
@@ -315,12 +342,52 @@ static void chay_am_tinh(ThongKe *tk) {
     ghi_ket_qua(tk, "am-tinh", "khoa Vigenere sai (K3y!)",
                 thu_tu_choi(ALGO_VIGENERE, CHE_DO_CHU, "K3y!",
                             "data/8bit.bin"));
+    ghi_ket_qua(tk, "am-tinh", "khoa Vigenere 300 ky tu (qua dai)",
+                thu_khoa_dai(ALGO_VIGENERE, CHE_DO_CHU, 'A', 300));
+    ghi_ket_qua(tk, "am-tinh", "khoa Caesar 34 chu so (qua dai)",
+                thu_khoa_dai(ALGO_CAESAR, CHE_DO_BYTE, '1', 34));
+    ghi_ket_qua(tk, "am-tinh", "khoa Caesar 99999999999999999999 (tran so)",
+                thu_tu_choi(ALGO_CAESAR, CHE_DO_BYTE, "99999999999999999999",
+                            "data/8bit.bin"));
+    ghi_ket_qua(tk, "am-tinh", "khoa Vigenere 255 ky tu (bien hop le)",
+                thu_khoa_bien_255());
     ghi_ket_qua(tk, "am-tinh", "tep vao trung tep ra", thu_trung_tep());
     ghi_ket_qua(tk, "am-tinh", "giai ma sai khoa", thu_sai_khoa());
 }
 
+/* Kiem tra truoc khi test: chuong trinh cua nhom co chay duoc khong?
+   Chi gui "0" (thoat menu). Neu khong tim thay cipher.exe thi system() tra ve khac 0.
+   Tranh truong hop test "PASS gia" vi chuong trinh khong he chay. */
+static int kiem_tra_cipher(void) {
+    char lenh[600];
+    FILE *tra_loi = fopen(TEP_TRA_LOI, "w");
+
+    if (tra_loi == NULL) {
+        return ERR_FILE_OPEN;
+    }
+    fprintf(tra_loi, "0\n");
+    fclose(tra_loi);
+    snprintf(lenh, sizeof(lenh), "%s < %s > %s", CIPHER_CMD, TEP_TRA_LOI,
+             TEP_NHAT_KY);
+    if (system(lenh) != 0) {
+        return ERR_FILE_NOT_FOUND;
+    }
+    return SUCCESS;
+}
+
 int main(void) {
     ThongKe tk;
+
+    if (kiem_tra_cipher() != SUCCESS) {
+        printf("LOI: khong chay duoc %s\n", CIPHER_CMD);
+        printf("Hay dich cipher.exe truoc, va chay run_tests tu thu muc co cipher.exe.\n");
+        return ERR_FILE_NOT_FOUND;
+    }
+    if (!tep_ton_tai("data/0bit.bin")) {
+        printf("LOI: chua co du lieu test trong thu muc data.\n");
+        printf("Hay tao thu muc data va out, roi chay gen_data truoc.\n");
+        return ERR_FILE_NOT_FOUND;
+    }
 
     tk.so_pass = 0;
     tk.so_fail = 0;
