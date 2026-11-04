@@ -1,9 +1,12 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -std=c99 -I. -Isrc -Idocs
 
-# Tự động tìm tất cả file .c ở thư mục gốc, src/ và docs/
-SRCS = $(wildcard *.c) $(wildcard src/*.c) $(wildcard docs/*.c)
+# Liệt kê rõ ràng các tệp nguồn chính của nhóm ở src/ và docs/
+SRCS = src/main.c src/header.c src/keyutil.c src/stub_identity.c \
+       docs/caesar.c docs/vigenere.c docs/xorcipher.c docs/tables.c docs/validate.c
+
 OBJS = $(SRCS:.c=.o)
+TARGET = cipher_tool
 
 all: $(TARGET)
 
@@ -17,4 +20,4 @@ debug: clean $(TARGET)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o src/*.o docs/*.o $(TARGET)
+	rm -f src/*.o docs/*.o *.o $(TARGET)
