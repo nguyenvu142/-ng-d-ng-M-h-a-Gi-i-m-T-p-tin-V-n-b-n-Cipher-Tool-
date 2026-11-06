@@ -74,7 +74,7 @@
 <div align="right" style="float: right; text-align: center; width: 300px;">
   <p><i>TP. Hồ Chí Minh, ngày 08 tháng 11 năm 2026</i></p>
   <p><b>Kẻ gánh team</b></p>
-  <br><br><br>
-  <p><b>Lê Ngọc Vương</b></p>
+  <br>
+  <p><b>Chatgpt and Le Ngoc Vuong</b></p>
 </div>
 <div style="clear: both;"></div>
