@@ -8,8 +8,7 @@
  Ý nghĩa: chống phương pháp phân tích tần suất các từ để dịch văn bản
  */
 void xor_encrypt(const uint8_t *input, uint8_t *output, size_t length, const uint8_t *key, size_t key_len) {
-    // Bổ sung kiểm tra NULL cho input, output, key và key_len == 0
-    if (input == NULL || output == NULL || key == NULL || key_len == 0 || length == 0) {
+    if (input == NULL || output == NULL || key == NULL || key_len == 0) {
         return;
     }
 
@@ -25,8 +24,7 @@ void xor_encrypt(const uint8_t *input, uint8_t *output, size_t length, const uin
  * Giải mã mảng dữ liệu bằng cách xoay bit phải ngược lại và XOR
  */
 void xor_decrypt(const uint8_t *input, uint8_t *output, size_t length, const uint8_t *key, size_t key_len) {
-    // Bổ sung kiểm tra NULL cho input, output, key và key_len == 0
-    if (input == NULL || output == NULL || key == NULL || key_len == 0 || length == 0) {
+    if (input == NULL || output == NULL || key == NULL || key_len == 0) {
         return;
     }
 
