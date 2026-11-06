@@ -6,7 +6,7 @@
 
 #include "caesar.h"
 #include "permutation_module.h"
-#include "team_padding.h"
+#include "padding.h"
 #include "transpose_process.h"
 #include "vigenere.h"
 
