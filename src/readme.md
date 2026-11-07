@@ -75,6 +75,6 @@
   <p><i>TP. Hồ Chí Minh, ngày 08 tháng 11 năm 2026</i></p>
   <p><b>Kẻ gánh team</b></p>
   
- <h2><b>Chatgpt and Le Ngoc Vuong</b></h2>
+ <h2><b>Le Ngoc Vuong</b></h2>
 </div>
 <div style="clear: both;"></div>
