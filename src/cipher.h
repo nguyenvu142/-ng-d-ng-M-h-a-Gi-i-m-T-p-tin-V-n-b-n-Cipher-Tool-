@@ -41,6 +41,5 @@ size_t remove_padding(const uint8_t *buffer, size_t padded_len, size_t block_siz
 // 3. THUẬT TOÁN BỔ SUNG (Nếu cần - CRC32 của Huy)
 // ---------------------------------------------------------
 // Tính mã băm CRC32 để kiểm tra toàn vẹn tệp
-uint32_t calculate_crc32(const uint8_t *data, size_t length);
-
+uint32_t calculate_crc32(const uint8_t *data, size_t length, uint32_t crc_init);
 #endif // CIPHER_H
