@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +13,6 @@
 #define WEAK_SYM
 #endif
 
-/* Neu file cua Huy/Tuan dat ten ham khac voi cipher.h, GCC tu dong dung ban nay */
 WEAK_SYM void caesar_process(uint8_t *data, size_t length, int shift_key, int mode) {
     int s = ((shift_key % 256) + 256) % 256;
     for (size_t i = 0; i < length; i++) {
@@ -40,14 +38,55 @@ WEAK_SYM void xor_process(uint8_t *data, size_t length, const uint8_t *key, size
     }
 }
 
-static void transpose_block_fallback(uint8_t *data, size_t length, const char *raw_key, int mode) {
-    (void)raw_key;
-    (void)mode;
-    for (size_t i = 0; i + 1 < length; i += 2) {
-        uint8_t tmp = data[i];
-        data[i] = data[i + 1];
-        data[i + 1] = tmp;
+/* Thuat toan Hoan vi khoi (Block Transposition) su dung khoa raw_key va che do mode */
+static void transpose_block_process(uint8_t *data, size_t length, const char *raw_key, int mode) {
+    size_t klen = (raw_key != NULL) ? strlen(raw_key) : 0;
+    if (klen == 0 || length == 0) return;
+
+    uint8_t key_mask = 0;
+    for (size_t k = 0; k < klen; k++) {
+        key_mask = (uint8_t)((key_mask + (uint8_t)raw_key[k] * (k + 1)) & 0xFF);
     }
+
+    if (mode == 1) {
+        /* Ma hoa: Dao vi tri trong khoi 16 bytes + ket hop khoa */
+        for (size_t base = 0; base + 16 <= length; base += 16) {
+            for (size_t j = 0; j < 8; j++) {
+                uint8_t tmp = data[base + j];
+                data[base + j] = data[base + 15 - j];
+                data[base + 15 - j] = tmp;
+            }
+        }
+        for (size_t i = 0; i < length; i++) {
+            uint8_t k = (uint8_t)(raw_key[i % klen] ^ key_mask);
+            data[i] = (uint8_t)((data[i] + k) & 0xFF);
+        }
+    } else {
+        /* Giai ma: Khoi phuc khoa truoc + Dao nguoc vi tri khoi 16 bytes */
+        for (size_t i = 0; i < length; i++) {
+            uint8_t k = (uint8_t)(raw_key[i % klen] ^ key_mask);
+            data[i] = (uint8_t)((data[i] - k + 256) & 0xFF);
+        }
+        for (size_t base = 0; base + 16 <= length; base += 16) {
+            for (size_t j = 0; j < 8; j++) {
+                uint8_t tmp = data[base + j];
+                data[base + j] = data[base + 15 - j];
+                data[base + 15 - j] = tmp;
+            }
+        }
+    }
+}
+
+/* Ham tinh ma kiem tra toan ven CRC32 (IEEE 802.3) */
+WEAK_SYM uint32_t calculate_crc32(const uint8_t *data, size_t length, uint32_t crc_init) {
+    uint32_t crc = ~crc_init;
+    for (size_t i = 0; i < length; i++) {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++) {
+            crc = (crc >> 1) ^ (0xEDB88320U & (-(int32_t)(crc & 1)));
+        }
+    }
+    return ~crc;
 }
 
 typedef void (*ThuatToanFunc)(uint8_t *data, size_t len, const char *raw_key, int mode);
@@ -66,7 +105,7 @@ static void boc_xor(uint8_t *data, size_t len, const char *raw_key, int mode) {
 }
 
 static void boc_transpose(uint8_t *data, size_t len, const char *raw_key, int mode) {
-    transpose_block_fallback(data, len, raw_key, mode);
+    transpose_block_process(data, len, raw_key, mode);
 }
 
 typedef struct {
@@ -133,14 +172,28 @@ static void xem_thong_tin_tep(const char *filepath) {
         perror("[LOI] Khong mo duoc tep de xem thong tin");
         return;
     }
-    if (fseek(f, 0, SEEK_END) == 0) {
-        long sz = ftell(f);
-        printf("\n--- THONG TIN TEP (ThongTinTep) ---\n");
-        printf("  Duong dan : %s\n", filepath);
-        printf("  Kich thuoc: %ld bytes\n", (sz >= 0) ? sz : 0L);
-        printf("-----------------------------------\n");
+    uint8_t *buf = (uint8_t *)malloc(BLOCK_SIZE);
+    long total_bytes = 0;
+    long blocks = 0;
+    uint32_t crc = 0;
+
+    if (buf) {
+        size_t n;
+        while ((n = fread(buf, 1, BLOCK_SIZE, f)) > 0) {
+            crc = calculate_crc32(buf, n, crc);
+            total_bytes += (long)n;
+            blocks++;
+        }
+        free(buf);
     }
     fclose(f);
+
+    printf("\n--- THONG TIN TEP (ThongTinTep & CRC32) ---\n");
+    printf("  Duong dan        : %s\n", filepath);
+    printf("  Kich thuoc       : %ld bytes\n", total_bytes);
+    printf("  So khoi 64 KB    : %ld block(s)\n", blocks);
+    printf("  Ma toan ven CRC32: 0x%08X\n", (unsigned int)crc);
+    printf("-------------------------------------------\n");
 }
 
 static void xoa_xuong_dong(char *s) {
@@ -159,7 +212,7 @@ int main(void) {
         for (size_t i = 0; i < SO_THUAT_TOAN; i++) {
             printf("  %d. %s\n", BANG_CON_TRO_HAM[i].id, BANG_CON_TRO_HAM[i].ten_hien_thi);
         }
-        printf("  5. Xem thong tin tep (ThongTinTep - Moc 4)\n");
+        printf("  5. Xem thong tin tep & CRC32 (ThongTinTep - Moc 4)\n");
         printf("  0. Thoat chuong trinh\n");
         printf("==========================================================\n");
         printf("Chon chuc nang (0-5): ");
