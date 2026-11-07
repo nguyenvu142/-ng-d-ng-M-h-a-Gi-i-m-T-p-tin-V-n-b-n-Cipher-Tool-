@@ -1,30 +1,12 @@
-#include "vigenere.h"
+#include <string.h>
+#include "cipher.h"
 
-void vigenere_process_bytes(uint8_t *data, size_t len, const uint8_t *key,
-                            size_t key_len, size_t *offset, bool decrypt) {
-    if (!data || !key || key_len == 0 || !offset) return;
-    for (size_t i = 0; i < len; ++i) {
-        unsigned int k = key[*offset % key_len];
-        if (decrypt) data[i] = (uint8_t)((data[i] + 256u - k) % 256u);
-        else data[i] = (uint8_t)((data[i] + k) % 256u);
-        *offset = (*offset + 1) % key_len;
-    }
-}
-
-void vigenere_process_letters(uint8_t *data, size_t len, const char *key,
-                              size_t key_len, size_t *offset, bool decrypt) {
-    if (!data || !key || key_len == 0 || !offset) return;
-    for (size_t i = 0; i < len; ++i) {
-        int base;
-        if (data[i] >= 'A' && data[i] <= 'Z') base = 'A';
-        else if (data[i] >= 'a' && data[i] <= 'z') base = 'a';
-        else continue;
-
-        unsigned char kc = (unsigned char)key[*offset % key_len];
-        int k = (kc >= 'a' && kc <= 'z') ? kc - 'a' : kc - 'A';
-        int value = (int)data[i] - base;
-        value = decrypt ? (value - k + 26) % 26 : (value + k) % 26;
-        data[i] = (uint8_t)(base + value);
-        *offset = (*offset + 1) % key_len;
+void vigenere_process(uint8_t *data, size_t length, const char *text_key, int mode) {
+    size_t klen = (text_key != NULL) ? strlen(text_key) : 0;
+    if (!data || length == 0 || klen == 0) return;
+    for (size_t i = 0; i < length; i++) {
+        uint8_t k = (uint8_t)text_key[i % klen];
+        data[i] = (mode == 1) ? (uint8_t)((data[i] + k) & 0xFF)
+                              : (uint8_t)((data[i] - k + 256) & 0xFF);
     }
 }

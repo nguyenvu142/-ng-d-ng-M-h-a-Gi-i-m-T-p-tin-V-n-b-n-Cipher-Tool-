@@ -1,7 +1,19 @@
-#include "keyutil.h"
 #include <stdio.h>
+#include <string.h>
+#include "keyutil.h"
 
 void get_cipher_key(int algo_id, uint8_t *key_buffer, size_t *key_len) {
-    printf("[STUB] Dang chay ham lay khoa cho thuat toan ID: %d\n", algo_id);
-    // Sau này Vũ sẽ code logic thực tế (scanf, fgets...) vào đây
+    if (!key_buffer || !key_len) return;
+    char tmp[256];
+    printf("Nhap khoa cho thuat toan %d: ", algo_id);
+    if (fgets(tmp, sizeof(tmp), stdin)) {
+        size_t n = strlen(tmp);
+        while (n > 0 && (tmp[n - 1] == '\n' || tmp[n - 1] == '\r')) {
+            tmp[--n] = '\0';
+        }
+        memcpy(key_buffer, tmp, n + 1);
+        *key_len = n;
+    } else {
+        *key_len = 0;
+    }
 }

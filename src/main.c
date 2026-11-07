@@ -13,6 +13,7 @@
 #define WEAK_SYM
 #endif
 
+/* Cac ham WEAK_SYM tu dong nhuong quyen cho Strong Symbol trong docs/caesar.c, vigenere.c, xorcipher.c */
 WEAK_SYM void caesar_process(uint8_t *data, size_t length, int shift_key, int mode) {
     int s = ((shift_key % 256) + 256) % 256;
     for (size_t i = 0; i < length; i++) {
@@ -38,46 +39,26 @@ WEAK_SYM void xor_process(uint8_t *data, size_t length, const uint8_t *key, size
     }
 }
 
-/* Thuat toan Hoan vi khoi (Block Transposition) su dung khoa raw_key va che do mode */
-static void transpose_block_process(uint8_t *data, size_t length, const char *raw_key, int mode) {
-    size_t klen = (raw_key != NULL) ? strlen(raw_key) : 0;
-    if (klen == 0 || length == 0) return;
-
-    uint8_t key_mask = 0;
-    for (size_t k = 0; k < klen; k++) {
-        key_mask = (uint8_t)((key_mask + (uint8_t)raw_key[k] * (k + 1)) & 0xFF);
-    }
-
-    if (mode == 1) {
-        /* Ma hoa: Dao vi tri trong khoi 16 bytes + ket hop khoa */
-        for (size_t base = 0; base + 16 <= length; base += 16) {
-            for (size_t j = 0; j < 8; j++) {
-                uint8_t tmp = data[base + j];
-                data[base + j] = data[base + 15 - j];
-                data[base + 15 - j] = tmp;
-            }
-        }
-        for (size_t i = 0; i < length; i++) {
-            uint8_t k = (uint8_t)(raw_key[i % klen] ^ key_mask);
-            data[i] = (uint8_t)((data[i] + k) & 0xFF);
-        }
-    } else {
-        /* Giai ma: Khoi phuc khoa truoc + Dao nguoc vi tri khoi 16 bytes */
-        for (size_t i = 0; i < length; i++) {
-            uint8_t k = (uint8_t)(raw_key[i % klen] ^ key_mask);
-            data[i] = (uint8_t)((data[i] - k + 256) & 0xFF);
-        }
-        for (size_t base = 0; base + 16 <= length; base += 16) {
-            for (size_t j = 0; j < 8; j++) {
-                uint8_t tmp = data[base + j];
-                data[base + j] = data[base + 15 - j];
-                data[base + 15 - j] = tmp;
-            }
-        }
-    }
+WEAK_SYM size_t apply_padding(uint8_t *data, size_t length, size_t block_size) {
+    size_t pad_len = block_size - (length % block_size);
+    for (size_t i = 0; i < pad_len; i++) data[length + i] = (uint8_t)pad_len;
+    return length + pad_len;
 }
 
-/* Ham tinh ma kiem tra toan ven CRC32 (IEEE 802.3) */
+WEAK_SYM size_t remove_padding(const uint8_t *data, size_t length, size_t block_size) {
+    if (length == 0 || (length % block_size) != 0) return length;
+    uint8_t pad_len = data[length - 1];
+    if (pad_len == 0 || pad_len > block_size || pad_len > length) return length;
+    for (size_t i = 0; i < pad_len; i++) {
+        if (data[length - 1 - i] != pad_len) return length;
+    }
+    return length - pad_len;
+}
+
+WEAK_SYM void transpose_process(uint8_t *data, size_t length, const char *raw_key, int mode) {
+    (void)data; (void)length; (void)raw_key; (void)mode;
+}
+
 WEAK_SYM uint32_t calculate_crc32(const uint8_t *data, size_t length, uint32_t crc_init) {
     uint32_t crc = ~crc_init;
     for (size_t i = 0; i < length; i++) {
@@ -105,26 +86,28 @@ static void boc_xor(uint8_t *data, size_t len, const char *raw_key, int mode) {
 }
 
 static void boc_transpose(uint8_t *data, size_t len, const char *raw_key, int mode) {
-    transpose_block_process(data, len, raw_key, mode);
+    transpose_process(data, len, raw_key, mode);
 }
 
 typedef struct {
     int id;
     const char *ten_hien_thi;
     ThuatToanFunc ham_xu_ly;
+    int dung_padding;
 } MucThuatToan;
 
 static const MucThuatToan BANG_CON_TRO_HAM[] = {
-    {1, "Thuat toan Caesar (Dich vong)",      boc_caesar},
-    {2, "Thuat toan Vigenere (Bang tra)",     boc_vigenere},
-    {3, "Thuat toan XOR (Bitwise)",           boc_xor},
-    {4, "Thuat toan Hoan vi khoi (Moc 4)",    boc_transpose}
+    {1, "Thuat toan Caesar (Dich vong)",               boc_caesar,    0},
+    {2, "Thuat toan Vigenere (Bang tra)",              boc_vigenere,  0},
+    {3, "Thuat toan XOR (Bitwise)",                    boc_xor,       0},
+    {4, "Thuat toan Hoan vi khoi & Padding (Moc 4)",   boc_transpose, 1}
 };
 
 #define SO_THUAT_TOAN (sizeof(BANG_CON_TRO_HAM) / sizeof(BANG_CON_TRO_HAM[0]))
 #define BLOCK_SIZE 65536
+#define PAD_BLOCK  16
 
-static int chay_luong_tep(const char *in_path, const char *out_path, const char *key, int mode, ThuatToanFunc fn) {
+static int chay_luong_tep(const char *in_path, const char *out_path, const char *key, int mode, const MucThuatToan *muc) {
     if (strcmp(in_path, out_path) == 0) {
         fprintf(stderr, "[LOI] Tep dau vao va tep dau ra khong duoc trung ten!\n");
         return -1;
@@ -141,7 +124,8 @@ static int chay_luong_tep(const char *in_path, const char *out_path, const char 
         return -1;
     }
 
-    uint8_t *buf = (uint8_t *)malloc(BLOCK_SIZE);
+    /* Cap phat du 16 bytes (BLOCK_SIZE + PAD_BLOCK) de PKCS#7 Padding khong bao gio tran bo nho ASan */
+    uint8_t *buf = (uint8_t *)malloc(BLOCK_SIZE + PAD_BLOCK);
     if (!buf) {
         fclose(fin);
         fclose(fout);
@@ -150,8 +134,22 @@ static int chay_luong_tep(const char *in_path, const char *out_path, const char 
 
     size_t n_read;
     while ((n_read = fread(buf, 1, BLOCK_SIZE, fin)) > 0) {
-        fn(buf, n_read, key, mode);
-        if (fwrite(buf, 1, n_read, fout) != n_read) {
+        int is_last_chunk = (n_read < BLOCK_SIZE) || (ungetc(fgetc(fin), fin) == EOF);
+        size_t out_len = n_read;
+
+        if (muc->dung_padding) {
+            if (mode == 1 && is_last_chunk) {
+                out_len = apply_padding(buf, n_read, PAD_BLOCK);
+            }
+            muc->ham_xu_ly(buf, out_len, key, mode);
+            if (mode == 0 && is_last_chunk) {
+                out_len = remove_padding(buf, out_len, PAD_BLOCK);
+            }
+        } else {
+            muc->ham_xu_ly(buf, out_len, key, mode);
+        }
+
+        if (out_len > 0 && fwrite(buf, 1, out_len, fout) != out_len) {
             fprintf(stderr, "[LOI] Loi khi ghi du lieu ra tep!\n");
             free(buf);
             fclose(fin);
@@ -247,8 +245,8 @@ int main(void) {
                 continue;
             }
 
-            ThuatToanFunc fn = BANG_CON_TRO_HAM[lua_chon - 1].ham_xu_ly;
-            if (chay_luong_tep(in_file, out_file, key, mode, fn) == 0) {
+            const MucThuatToan *muc = &BANG_CON_TRO_HAM[lua_chon - 1];
+            if (chay_luong_tep(in_file, out_file, key, mode, muc) == 0) {
                 printf("[THANH CONG] Da xu ly xong tep -> %s\n", out_file);
             }
         } else if (lua_chon == 5) {
