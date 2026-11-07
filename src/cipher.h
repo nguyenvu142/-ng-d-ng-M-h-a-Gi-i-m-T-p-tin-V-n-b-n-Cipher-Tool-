@@ -35,7 +35,7 @@ size_t apply_padding(uint8_t *buffer, size_t current_len, size_t block_size);
 
 // Hàm gỡ đệm (Remove Padding) sau khi giải mã
 // Trả về kích thước thực tế của dữ liệu sau khi cắt bỏ padding
-size_t remove_padding(const uint8_t *buffer, size_t padded_len);
+size_t remove_padding(const uint8_t *buffer, size_t padded_len, size_t block_size);
 
 // ---------------------------------------------------------
 // 3. THUẬT TOÁN BỔ SUNG (Nếu cần - CRC32 của Huy)
