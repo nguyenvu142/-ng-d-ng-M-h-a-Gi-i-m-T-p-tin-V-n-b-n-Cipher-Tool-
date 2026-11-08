@@ -2,261 +2,111 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "cipher.h"
-#include "common.h"
-#include "fileinfo.h"
-#include "keyutil.h"
+#include "tables.h"
+#include "caesar.h"
+#include "vigenere.h"
+#include "validate.h"
 
-#if defined(__GNUC__) || defined(__clang__)
-#define WEAK_SYM __attribute__((weak))
-#else
-#define WEAK_SYM
-#endif
+#define BUFFER_SIZE 4096
 
-/* Cac ham WEAK_SYM tu dong nhuong quyen cho Strong Symbol trong docs/caesar.c, vigenere.c, xorcipher.c */
-WEAK_SYM void caesar_process(uint8_t *data, size_t length, int shift_key, int mode) {
-    int s = ((shift_key % 256) + 256) % 256;
-    for (size_t i = 0; i < length; i++) {
-        data[i] = (mode == 1) ? (uint8_t)((data[i] + s) & 0xFF)
-                              : (uint8_t)((data[i] - s + 256) & 0xFF);
+static int process_file(const char *input_path, const char *output_path,
+                        int algorithm, int mode, int decrypt,
+                        int caesar_key, const char *vig_key) {
+    if (strcmp(input_path, output_path) == 0) {
+        fprintf(stderr, "Loi: tep dau vao va tep dau ra khong duoc trung nhau.\n");
+        return 0;
     }
-}
+    FILE *in = fopen(input_path, "rb");
+    if (!in) { perror("Khong mo duoc tep dau vao"); return 0; }
+    FILE *out = fopen(output_path, "wb");
+    if (!out) { perror("Khong tao duoc tep dau ra"); fclose(in); return 0; }
 
-WEAK_SYM void vigenere_process(uint8_t *data, size_t length, const char *text_key, int mode) {
-    size_t klen = (text_key != NULL) ? strlen(text_key) : 0;
-    if (klen == 0) return;
-    for (size_t i = 0; i < length; i++) {
-        uint8_t k = (uint8_t)text_key[i % klen];
-        data[i] = (mode == 1) ? (uint8_t)((data[i] + k) & 0xFF)
-                              : (uint8_t)((data[i] - k + 256) & 0xFF);
-    }
-}
-
-WEAK_SYM void xor_process(uint8_t *data, size_t length, const uint8_t *key, size_t key_len) {
-    if (!key || key_len == 0) return;
-    for (size_t i = 0; i < length; i++) {
-        data[i] ^= key[i % key_len];
-    }
-}
-
-WEAK_SYM size_t apply_padding(uint8_t *data, size_t length, size_t block_size) {
-    size_t pad_len = block_size - (length % block_size);
-    for (size_t i = 0; i < pad_len; i++) data[length + i] = (uint8_t)pad_len;
-    return length + pad_len;
-}
-
-WEAK_SYM size_t remove_padding(const uint8_t *data, size_t length, size_t block_size) {
-    if (length == 0 || (length % block_size) != 0) return length;
-    uint8_t pad_len = data[length - 1];
-    if (pad_len == 0 || pad_len > block_size || pad_len > length) return length;
-    for (size_t i = 0; i < pad_len; i++) {
-        if (data[length - 1 - i] != pad_len) return length;
-    }
-    return length - pad_len;
-}
-
-WEAK_SYM void transpose_process(uint8_t *data, size_t length, const char *raw_key, int mode) {
-    (void)data; (void)length; (void)raw_key; (void)mode;
-}
-
-WEAK_SYM uint32_t calculate_crc32(const uint8_t *data, size_t length, uint32_t crc_init) {
-    uint32_t crc = ~crc_init;
-    for (size_t i = 0; i < length; i++) {
-        crc ^= data[i];
-        for (int j = 0; j < 8; j++) {
-            crc = (crc >> 1) ^ (0xEDB88320U & (-(int32_t)(crc & 1)));
-        }
-    }
-    return ~crc;
-}
-
-typedef void (*ThuatToanFunc)(uint8_t *data, size_t len, const char *raw_key, int mode);
-
-static void boc_caesar(uint8_t *data, size_t len, const char *raw_key, int mode) {
-    caesar_process(data, len, atoi(raw_key), mode);
-}
-
-static void boc_vigenere(uint8_t *data, size_t len, const char *raw_key, int mode) {
-    vigenere_process(data, len, raw_key, mode);
-}
-
-static void boc_xor(uint8_t *data, size_t len, const char *raw_key, int mode) {
-    (void)mode;
-    xor_process(data, len, (const uint8_t *)raw_key, strlen(raw_key));
-}
-
-static void boc_transpose(uint8_t *data, size_t len, const char *raw_key, int mode) {
-    transpose_process(data, len, raw_key, mode);
-}
-
-typedef struct {
-    int id;
-    const char *ten_hien_thi;
-    ThuatToanFunc ham_xu_ly;
-    int dung_padding;
-} MucThuatToan;
-
-static const MucThuatToan BANG_CON_TRO_HAM[] = {
-    {1, "Thuat toan Caesar (Dich vong)",               boc_caesar,    0},
-    {2, "Thuat toan Vigenere (Bang tra)",              boc_vigenere,  0},
-    {3, "Thuat toan XOR (Bitwise)",                    boc_xor,       0},
-    {4, "Thuat toan Hoan vi khoi & Padding (Moc 4)",   boc_transpose, 1}
-};
-
-#define SO_THUAT_TOAN (sizeof(BANG_CON_TRO_HAM) / sizeof(BANG_CON_TRO_HAM[0]))
-#define BLOCK_SIZE 65536
-#define PAD_BLOCK  16
-
-static int chay_luong_tep(const char *in_path, const char *out_path, const char *key, int mode, const MucThuatToan *muc) {
-    if (strcmp(in_path, out_path) == 0) {
-        fprintf(stderr, "[LOI] Tep dau vao va tep dau ra khong duoc trung ten!\n");
-        return -1;
-    }
-    FILE *fin = fopen(in_path, "rb");
-    if (!fin) {
-        perror("[LOI] Khong mo duoc tep dau vao");
-        return -1;
-    }
-    FILE *fout = fopen(out_path, "wb");
-    if (!fout) {
-        perror("[LOI] Khong tao duoc tep dau ra");
-        fclose(fin);
-        return -1;
-    }
-
-    /* Cap phat du 16 bytes (BLOCK_SIZE + PAD_BLOCK) de PKCS#7 Padding khong bao gio tran bo nho ASan */
-    uint8_t *buf = (uint8_t *)malloc(BLOCK_SIZE + PAD_BLOCK);
-    if (!buf) {
-        fclose(fin);
-        fclose(fout);
-        return -1;
-    }
-
-    size_t n_read;
-    while ((n_read = fread(buf, 1, BLOCK_SIZE, fin)) > 0) {
-        int is_last_chunk = (n_read < BLOCK_SIZE) || (ungetc(fgetc(fin), fin) == EOF);
-        size_t out_len = n_read;
-
-        if (muc->dung_padding) {
-            if (mode == 1 && is_last_chunk) {
-                out_len = apply_padding(buf, n_read, PAD_BLOCK);
-            }
-            muc->ham_xu_ly(buf, out_len, key, mode);
-            if (mode == 0 && is_last_chunk) {
-                out_len = remove_padding(buf, out_len, PAD_BLOCK);
-            }
+    uint8_t buffer[BUFFER_SIZE];
+    size_t n, offset = 0;
+    size_t key_len = vig_key ? strlen(vig_key) : 0;
+    while ((n = fread(buffer, 1, sizeof buffer, in)) > 0) {
+        if (algorithm == 1) {
+            if (mode == 1) caesar_process_bytes(buffer, n, caesar_key, decrypt != 0);
+            else caesar_process_letters(buffer, n, caesar_key, decrypt != 0);
         } else {
-            muc->ham_xu_ly(buf, out_len, key, mode);
+            if (mode == 1) {
+                vigenere_process_bytes(buffer, n, (const uint8_t *)vig_key,
+                                       key_len, &offset, decrypt != 0);
+            } else {
+                vigenere_process_letters(buffer, n, vig_key, key_len,
+                                         &offset, decrypt != 0);
+            }
         }
-
-        if (out_len > 0 && fwrite(buf, 1, out_len, fout) != out_len) {
-            fprintf(stderr, "[LOI] Loi khi ghi du lieu ra tep!\n");
-            free(buf);
-            fclose(fin);
-            fclose(fout);
-            return -1;
+        if (fwrite(buffer, 1, n, out) != n) {
+            perror("Loi ghi tep"); fclose(in); fclose(out); return 0;
         }
     }
-
-    free(buf);
-    fclose(fin);
-    fclose(fout);
-    return 0;
+    if (ferror(in)) { perror("Loi doc tep"); fclose(in); fclose(out); return 0; }
+    fclose(in);
+    if (fclose(out) != 0) { perror("Loi dong tep dau ra"); return 0; }
+    return 1;
 }
 
-static void xem_thong_tin_tep(const char *filepath) {
-    FILE *f = fopen(filepath, "rb");
-    if (!f) {
-        perror("[LOI] Khong mo duoc tep de xem thong tin");
-        return;
+/* Doc not phan con lai cua dong. Tra ve so ky tu thua (khong tinh khoang trang). */
+static int discard_rest_of_line(void) {
+    int ch, extra = 0;
+    while ((ch = getchar()) != '\n' && ch != EOF) {
+        if (ch != ' ' && ch != '\t' && ch != '\r') extra++;
     }
-    uint8_t *buf = (uint8_t *)malloc(BLOCK_SIZE);
-    long total_bytes = 0;
-    long blocks = 0;
-    uint32_t crc = 0;
-
-    if (buf) {
-        size_t n;
-        while ((n = fread(buf, 1, BLOCK_SIZE, f)) > 0) {
-            crc = calculate_crc32(buf, n, crc);
-            total_bytes += (long)n;
-            blocks++;
-        }
-        free(buf);
-    }
-    fclose(f);
-
-    printf("\n--- THONG TIN TEP (ThongTinTep & CRC32) ---\n");
-    printf("  Duong dan        : %s\n", filepath);
-    printf("  Kich thuoc       : %ld bytes\n", total_bytes);
-    printf("  So khoi 64 KB    : %ld block(s)\n", blocks);
-    printf("  Ma toan ven CRC32: 0x%08X\n", (unsigned int)crc);
-    printf("-------------------------------------------\n");
-}
-
-static void xoa_xuong_dong(char *s) {
-    size_t n = strlen(s);
-    while (n > 0 && (s[n - 1] == '\n' || s[n - 1] == '\r')) {
-        s[--n] = '\0';
-    }
+    return extra;
 }
 
 int main(void) {
-    char line[256], in_file[256], out_file[256], key[256];
-    int lua_chon = 0, mode = 1;
+    int choice, mode, key, decrypt;
+    char input[512], output[512], vig_key[256], key_text[32];
+    tables_init();
+    for (;;) {
+        puts("\n=== CIPHER: MA HOA / GIAI MA TEP ===");
+        puts("1. Caesar Cipher");
+        puts("2. Vigenere Cipher");
+        puts("0. Thoat");
+        printf("Lua chon: ");
+        if (scanf("%d", &choice) != 1) return 1;
+        if (choice == 0) break;
+        if (choice != 1 && choice != 2) { puts("Lua chon khong hop le."); continue; }
 
-    while (1) {
-        printf("\n================ CIPHER TOOL - MENU CHINH ================\n");
-        for (size_t i = 0; i < SO_THUAT_TOAN; i++) {
-            printf("  %d. %s\n", BANG_CON_TRO_HAM[i].id, BANG_CON_TRO_HAM[i].ten_hien_thi);
+        printf("Che do (1=byte, 2=chu cai ASCII): ");
+        if (scanf("%d", &mode) != 1 || (mode != 1 && mode != 2)) {
+            puts("Che do khong hop le."); return 1;
         }
-        printf("  5. Xem thong tin tep & CRC32 (ThongTinTep - Moc 4)\n");
-        printf("  0. Thoat chuong trinh\n");
-        printf("==========================================================\n");
-        printf("Chon chuc nang (0-5): ");
-
-        if (!fgets(line, sizeof(line), stdin)) break;
-        lua_chon = atoi(line);
-
-        if (lua_chon == 0) {
-            printf("Da thoat chuong trinh.\n");
-            break;
+        printf("Tac vu (1=ma hoa, 2=giai ma): ");
+        if (scanf("%d", &decrypt) != 1 || (decrypt != 1 && decrypt != 2)) {
+            puts("Tac vu khong hop le."); return 1;
         }
+        decrypt = (decrypt == 2);
+        printf("Tep dau vao: ");
+        if (scanf(" %511[^\n]", input) != 1) return 1;
+        printf("Tep dau ra: ");
+        if (scanf(" %511[^\n]", output) != 1) return 1;
 
-        if (lua_chon >= 1 && lua_chon <= (int)SO_THUAT_TOAN) {
-            printf("Chon che do (1 = Ma hoa, 0 = Giai ma): ");
-            if (!fgets(line, sizeof(line), stdin)) break;
-            mode = (atoi(line) == 0) ? 0 : 1;
-
-            printf("Nhap duong dan tep dau vao: ");
-            if (!fgets(in_file, sizeof(in_file), stdin)) break;
-            xoa_xuong_dong(in_file);
-
-            printf("Nhap duong dan tep dau ra: ");
-            if (!fgets(out_file, sizeof(out_file), stdin)) break;
-            xoa_xuong_dong(out_file);
-
-            printf("Nhap khoa (Key): ");
-            if (!fgets(key, sizeof(key), stdin)) break;
-            xoa_xuong_dong(key);
-
-            if (strlen(key) == 0) {
-                printf("[LOI] Khoa khong duoc de trong!\n");
+        if (choice == 1) {
+            printf("Khoa so Caesar (1-255): ");
+            if (scanf(" %31s", key_text) != 1) return 1;
+            if (discard_rest_of_line() > 0) {
+                fprintf(stderr, "Loi: khoa Caesar khong hop le.\n");
                 continue;
             }
-
-            const MucThuatToan *muc = &BANG_CON_TRO_HAM[lua_chon - 1];
-            if (chay_luong_tep(in_file, out_file, key, mode, muc) == 0) {
-                printf("[THANH CONG] Da xu ly xong tep -> %s\n", out_file);
-            }
-        } else if (lua_chon == 5) {
-            printf("Nhap duong dan tep can xem thong tin: ");
-            if (fgets(in_file, sizeof(in_file), stdin)) {
-                xoa_xuong_dong(in_file);
-                xem_thong_tin_tep(in_file);
-            }
+            if (!parse_caesar_key(key_text, &key)) continue;
+            if (!validate_caesar_key(key, mode == 1)) continue;
+            if (process_file(input, output, choice, mode, decrypt, key, NULL))
+                printf("Hoan tat: %s\n", output);
         } else {
-            printf("[LOI] Lua chon khong hop le! Vui long chon tu 0 den 5.\n");
+            printf("Khoa Vigenere (A-Z): ");
+            if (scanf(" %255s", vig_key) != 1) return 1;
+            if (discard_rest_of_line() > 0) {
+                fprintf(stderr, "Loi: khoa Vigenere qua dai (toi da 255 ky tu).\n");
+                continue;
+            }
+            if (!validate_vigenere_key(vig_key)) continue;
+            for (size_t i = 0; vig_key[i]; ++i)
+                if (vig_key[i] >= 'a' && vig_key[i] <= 'z') vig_key[i] -= 'a' - 'A';
+            if (process_file(input, output, choice, mode, decrypt, 0, vig_key))
+                printf("Hoan tat: %s\n", output);
         }
     }
     return 0;

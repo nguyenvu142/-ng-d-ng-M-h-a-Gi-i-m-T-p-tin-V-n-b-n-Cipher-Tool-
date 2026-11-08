@@ -1,15 +1,22 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Wno-unused-parameter -pedantic -std=c99 -I. -Isrc -Idocs
+CFLAGS = -std=c99 -Wall -Wextra -pedantic -O2 -Isrc
+DBGFLAGS = -std=c99 -Wall -Wextra -pedantic -g -O0 -fsanitize=address,undefined -Isrc
+
+SRCS = $(wildcard src/*.c)
 TARGET = cipher_tool
-SRCS = $(wildcard src/main.c src/header.c src/keyutil.c docs/caesar.c docs/vigenere.c docs/xorcipher.c)
-OBJS = $(SRCS:.c=.o)
+
+.PHONY: all debug test clean
 
 all: $(TARGET)
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
-debug: CFLAGS += -g -fsanitize=address
-debug: clean $(TARGET)
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+
+$(TARGET): $(SRCS)
+	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET)
+
+debug: $(SRCS)
+	$(CC) $(DBGFLAGS) $(SRCS) -o $(TARGET)_debug
+
+test: all debug
+	bash tests/run_tests.sh
+
 clean:
-	rm -f src/*.o docs/*.o *.o $(TARGET)
+	rm -f $(TARGET) $(TARGET)_debug *.tmp tests/*.bin tests/*.enc tests/*.dec
