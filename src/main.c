@@ -91,8 +91,8 @@ int main(void) {
                 fprintf(stderr, "Loi: khoa Caesar khong hop le.\n");
                 continue;
             }
-            if (!validate_caesar_key(key_text, &key)) continue;
-            if (!validate_caesar_key(key, mode == 1)) continue;
+           key = atoi(key_text);
+if (!validate_caesar_key(key, mode == 1)) continue;
             if (process_file(input, output, choice, mode, decrypt, key, NULL))
                 printf("Hoan tat: %s\n", output);
         } else {
